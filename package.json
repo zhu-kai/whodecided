@@ -1,0 +1,48 @@
+{
+  "name": "whodecided",
+  "version": "0.1.0",
+  "description": "Common law for agentic coding: distill the decisions your AI agent silently made into a one-screen docket; every ruling becomes precedent",
+  "license": "MIT",
+  "author": "Kai Zhu",
+  "type": "module",
+  "keywords": [
+    "claude-code",
+    "ai-coding",
+    "agent",
+    "audit",
+    "code-review",
+    "decision-log",
+    "cli"
+  ],
+  "homepage": "https://github.com/zhu-kai/whodecided#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zhu-kai/whodecided.git"
+  },
+  "bugs": {
+    "url": "https://github.com/zhu-kai/whodecided/issues"
+  },
+  "bin": {
+    "whodecided": "dist/cli.js",
+    "wdd": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "prepublishOnly": "tsc"
+  },
+  "dependencies": {
+    "yaml": "^2.8.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.2.0"
+  }
+}

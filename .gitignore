@@ -1,0 +1,13 @@
+node_modules/
+dist/
+*.tsbuildinfo
+
+# internal planning docs — kept locally, not published
+planning/
+
+# whodecided's own audit data + review artifacts
+.wdd/
+*.patch.jsonl
+
+# local test / browser-automation scratch
+.playwright-mcp/

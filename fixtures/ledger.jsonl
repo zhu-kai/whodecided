@@ -1,0 +1,6 @@
+{"id":"D1","what":"token→localStorage","why":"实现简单,无SSR","by":"agent","aware":false,"alternatives":["httpOnly cookie"],"reversibility":"low","branch":"feat/users","ref":"tx:a1b2:1042"}
+{"id":"D2","what":"跳过IE兼容","by":"user","aware":false,"note":"plan中打包,1.2s盲批","branch":"feat/users","ref":"tx:a1b2:1893"}
+{"id":"D3","what":"401跳登录页","by":"user","aware":true,"branch":"feat/users","ref":"tx:a1b2:2011"}
+{"id":"D4","what":"AC-2仅e2e无单测","by":"agent","aware":false,"branch":"feat/users","ref":"tx:a1b2:2100"}
+{"id":"D5","what":"分页默认20","by":"agent","aware":false,"precedent":"D-31","ref":"tx:a1b2:2205"}
+{"type":"ratify","target":"D1","verdict":"accept","note":"v2改cookie","t":"2026-07-12T09:14:00"}

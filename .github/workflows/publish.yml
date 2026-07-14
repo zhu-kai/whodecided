@@ -1,0 +1,26 @@
+name: publish
+
+# Publishes to npm on a GitHub Release (tag like v0.1.0) via OIDC trusted
+# publishing — no npm token. Configure the trusted publisher once at
+# npmjs.com → the package → Settings → Trusted publishing (GitHub Actions,
+# repo zhu-kai/whodecided, workflow publish.yml). Provenance is automatic.
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # OIDC identity for trusted publishing + provenance
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - run: npm install -g npm@latest # OIDC trusted publishing needs npm >= 11.5
+      - run: npm ci
+      - run: npm test
+      - run: npm publish --access public
