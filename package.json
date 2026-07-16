@@ -1,6 +1,6 @@
 {
   "name": "whodecided",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Common law for agentic coding: distill the decisions your AI agent silently made into a one-screen docket; every ruling becomes precedent",
   "license": "MIT",
   "author": "Kai Zhu",
@@ -35,7 +35,7 @@
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
-    "prepublishOnly": "tsc"
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "yaml": "^2.8.0"

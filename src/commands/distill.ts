@@ -1,9 +1,11 @@
 import { relative } from "node:path";
 import { distill } from "../distill/distiller.js";
+import { NO_DISTILLER_MSG, resolveDistiller } from "../distill/detect.js";
 import { loadWatermark, saveWatermark, watermarkPath, type Watermark } from "../distill/watermark.js";
 import type { DecisionCandidate } from "../extract/candidates.js";
 import { commitFiles } from "../git.js";
 import { appendLedgerLines, ledgerPath, nextDecisionNumber, readLedger } from "../ledger/io.js";
+import { appendEvidence, evidencePath } from "../ledger/evidence.js";
 import { resolveScope, type Scope } from "./scope.js";
 
 export interface DistillRunResult {
@@ -26,17 +28,19 @@ export async function runIncrementalDistill(scope: Scope, root: string, progress
     return { added: 0 };
   }
 
+  const distiller = resolveDistiller(scope.config.distill.cmd, fresh);
+  if (!distiller) return { added: 0, degraded: NO_DISTILLER_MSG };
+  const file = ledgerPath(root);
+  const existing = readLedger(file).entries; // told to the distiller for cross-session dedup
   const stop = progress
-    ? spinner(`distilling ${fresh.length} new candidate(s) with ${scope.config.distill.cmd.join(" ")} — can take ~10-60s`)
+    ? spinner(`distilling ${fresh.length} new candidate(s) with ${distiller.cmd.join(" ")} — can take ~10-60s`)
     : () => {};
-  const { entries, degraded } = await distill(fresh, scope.config.distill);
+  const { entries, degraded } = await distill(fresh, { ...scope.config.distill, cmd: distiller.cmd }, existing.map((e) => e.what));
   stop();
   if (degraded) return { added: 0, degraded };
 
   let added = 0;
   if (entries.length > 0) {
-    const file = ledgerPath(root);
-    const existing = readLedger(file).entries;
     const existingRefs = new Set(existing.map((e) => e.ref));
     const novel = entries.filter((e) => !existingRefs.has(e.ref));
     let n = nextDecisionNumber(existing);
@@ -57,10 +61,16 @@ export async function runIncrementalDistill(scope: Scope, root: string, progress
       };
     });
     appendLedgerLines(file, numbered);
+    const evFile = evidencePath(root);
+    const wroteEvidence = appendEvidence(
+      evFile,
+      numbered.map((e) => ({ ref: e.ref, excerpt: byRef.get(e.ref)?.slice ?? "" })).filter((x) => x.excerpt),
+    );
     added = numbered.length;
     // Auto-commit only when the user opted in; otherwise leave it in the tree.
     if (scope.config.share === "repo" && scope.config.commit === "on") {
-      const commit = commitFiles(root, [relative(root, file)], `wdd distill: +${numbered.length} decisions`);
+      const paths = [relative(root, file), ...(wroteEvidence ? [relative(root, evFile)] : [])];
+      const commit = commitFiles(root, paths, `wdd distill: +${numbered.length} decisions`);
       if (commit.ignored) {
         advanceWatermark(watermark, scope.candidates);
         saveWatermark(wmFile, watermark);

@@ -1,4 +1,5 @@
 import type { SessionEvent } from "../transcript/parser.js";
+import { redact } from "./redact.js";
 
 export interface DecisionCandidate {
   ref: string;
@@ -20,8 +21,8 @@ export interface Heuristics {
 
 export const DEFAULT_HEURISTICS: Heuristics = { reflexMs: 3000 };
 
-// File-editing tools whose input is a path (grounds "what" in actual code).
-const FILE_TOOLS = new Set(["Edit", "Write", "MultiEdit", "NotebookEdit", "Update"]);
+// File-editing tools whose input is a path (grounds "what" in actual code); apply_patch is Codex's.
+const FILE_TOOLS = new Set(["Edit", "Write", "MultiEdit", "NotebookEdit", "Update", "apply_patch"]);
 
 function filesTouched(events: SessionEvent[]): string[] {
   const files: string[] = [];
@@ -158,5 +159,6 @@ function renderSlice(events: SessionEvent[]): string {
     const text = (e.text ?? "").replace(/\s+/g, " ").slice(0, MAX_LINE_CHARS);
     lines.push(`[${e.line}] ${tag}: ${text}`);
   }
-  return lines.join("\n");
+  // Redact secrets before this excerpt reaches the distiller or persisted evidence.
+  return redact(lines.join("\n"));
 }
