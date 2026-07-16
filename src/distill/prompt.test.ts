@@ -6,9 +6,9 @@ const cand: DecisionCandidate = { ref: "tx:a:1", kind: "turn", aware: false, sum
 
 describe("buildPrompt known-decisions block", () => {
   it("tells the distiller what is already recorded", () => {
-    const { instructions } = buildPrompt([cand], 10, "en", ["use tradingModes as capability source"]);
+    const { instructions } = buildPrompt([cand], 10, "en", ["derive the fee from the shipping block"]);
     expect(instructions).toContain("Already on the ledger");
-    expect(instructions).toContain("use tradingModes as capability source");
+    expect(instructions).toContain("derive the fee from the shipping block");
   });
 
   it("omits the block when nothing is recorded yet", () => {

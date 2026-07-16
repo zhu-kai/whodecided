@@ -18,15 +18,15 @@ It's a thin CLI + a `.wdd/` folder of plain text in your repo. No server, no dat
 
 ```
 ⚠ D3 · AI decided, never asked                                      RISK
-  Fall back to the legacy features array when tradingModes is absent
-  why: keeps existing accounts working during the rollout
+  Treat a missing shipping block as free shipping
+  why: legacy listings keep rendering during the rollout
 ```
 
 Sounds considerate.
-It is also fail-open on a permissions path: missing data now grants access.
-The summary said "done, 215 tests pass" and the diff was green - nobody chose this, the agent did, and told no one.
-`wdd review` ranks it at the top (silent × permissions-shaped × spread across 5 files).
-You hit Reject with a note; "DON'T treat missing capability data as access" lands in your agents' memory, and none of them guesses that again.
+It is also fail-open on money: missing data now sells free shipping.
+The summary said "done, 314 tests pass" and the diff was green - nobody chose this, the agent did, and told no one.
+`wdd review` ranks it at the top (silent × touches every price on the page × spread across 3 files).
+You hit Reject with a note; "DON'T default missing shipping data to free" lands in your agents' memory, and none of them guesses that again.
 
 **The quietly skipped test.**
 
@@ -42,8 +42,8 @@ No LLM judgement involved in catching it: wdd reads the branch diff, and deleted
 
 ```
 ⚠ D4 · AI decided · stated as an assumption          #1 in "Review these first"
-  Proceed on the assumption that reseller accounts contain both buyer and seller
-    ↩ walked back by D14 - "after testing on a real account, reverted to available.includes"
+  Proceed on the assumption that international listings include duties in the fee
+    ↩ walked back by D8 - "real listings carry duties separately; reverted"
 ```
 
 Two days and 120 lines later, the agent quietly reversed its own guess.
