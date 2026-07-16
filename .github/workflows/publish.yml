@@ -1,15 +1,18 @@
 name: Publish
 
+# Merging to main releases automatically: when package.json carries a version
+# that is not on npm yet, this publishes it and cuts the matching GitHub
+# release. Merges without a version bump are a fast no-op.
 on:
-  release:
-    types: [published]
+  push:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
   publish-npm:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write # create the release tag
       id-token: write # OIDC for npm trusted publishing
     steps:
       - uses: actions/checkout@v5
@@ -24,14 +27,35 @@ jobs:
       - name: Update npm (trusted publishing needs >= 11.5.1)
         run: npm install -g npm@latest
 
+      - name: Check whether this version is new
+        id: v
+        run: |
+          V=$(npm pkg get version | tr -d '"')
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          if npm view "whodecided@$V" version >/dev/null 2>&1; then
+            echo "Version $V already on npm, nothing to publish"
+            echo "new=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "new=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Install dependencies
+        if: steps.v.outputs.new == 'true'
         run: npm ci
 
       - name: Build
+        if: steps.v.outputs.new == 'true'
         run: npm run build
 
       - name: Publish to npm
+        if: steps.v.outputs.new == 'true'
         run: npm publish --access public
+
+      - name: Create GitHub release
+        if: steps.v.outputs.new == 'true'
+        run: gh release create "v${{ steps.v.outputs.version }}" --title "v${{ steps.v.outputs.version }}" --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
 
   publish-github:
     runs-on: ubuntu-latest
