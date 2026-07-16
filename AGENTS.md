@@ -26,14 +26,17 @@ Read-only pipeline with exactly two write points (distill → ledger, ratify →
 
 ```
 cli.ts → commands/*            command routing + orchestration
-  transcript/  locate + parse  ~/.claude/projects/*.jsonl → SessionEvent[]
+  transcript/  locate + parse  CC (~/.claude/projects) and Codex (~/.codex/sessions rollouts) → SessionEvent[]
   extract/     candidates      deterministic decision candidates + aware heuristics (NO LLM)
-  distill/     distiller        claude -p subprocess → LedgerEntry[] (schema-validated, retry, degrade)
+  distill/     detect + distiller   auto-detect claude/codex (config wins, sessions vote) → subprocess → LedgerEntry[] (schema-validated, retry, degrade)
   ledger/      schema + io      append-only jsonl read/write; verdictOf/isPinned/noteOf
   patch/       apply            THE single write path: validate → append ratify lines → (opt) commit
-  checks/      gate             two-green status (pure function)
-  render/      term/md/html     terminal docket / PR markdown / single-file workbench
-  config.ts git.ts jsonl.ts validate.ts   infra
+  ledger/      evidence         persisted (redacted) transcript excerpt per decision, keyed by ref
+  extract/     redact           mask secrets before a slice reaches the distiller or evidence
+  checks/      gate diff-signals risk supersede coverage   pure triage signals over ledger/diff/traces
+  commands/    signals          assembles branch diff + per-decision signals for review/board/report
+  render/      term/md/html     terminal docket / PR markdown / single-file workbench (Timeline + Threads tabs, keyboard review, change map, per-decision diff, triage)
+  config.ts git.ts jsonl.ts validate.ts   infra (git.ts: branchDiff/churn/productFiles)
 ```
 
 `render/*` and `checks/*` are pure functions (data in, string/struct out) — unit-test them directly.
@@ -45,12 +48,16 @@ cli.ts → commands/*            command routing + orchestration
 - **Never auto-commit by default.** The tool writes files; it commits only when `config.commit === "on"`. Do not touch the user's git history uninvited.
 - **Hooks never disturb the session.** `hook trace` / `hook autodistill` swallow all errors and exit 0.
 - **Latest ruling wins.** `verdictOf`/`isPinned`/`noteOf` scan ratify lines from the end. The ledger is append-only; changing a mind appends, never rewrites.
+- **Self-contained provenance.** Each decision's `ref` is backed by a persisted, redacted excerpt in `.wdd/evidence.jsonl`, so the "why" survives transcript rotation and travels with the audit. Secrets are masked (`extract/redact.ts`) before any slice reaches the distiller or disk.
+- **Show the code, not just the claim.** The workbench and `report --md` surface the branch's real diff (a change map, plus per-decision hunks) and flag weakened tests (`checks/diff-signals.ts`) - a silent decision a plain diff scan misses. Diff capture is read-only (`git diff`, `.wdd/` excluded); no LLM.
+- **Help the reviewer triage.** Three deterministic signals rank and connect decisions, all from data already on hand (no LLM): `checks/risk.ts` scores the silent × hard-to-reverse × hedged quadrant plus diff-derived churn, scatter (change entropy, Hassan) and fan-out to seed a "review these first" list; `checks/supersede.ts` links a later decision that walks back an earlier one (reversal language + most shared files, one best match); `checks/coverage.ts` says whether a test run followed a behavior change (branch-level, time-based - labeled honestly, not per-line coverage).
 - **Data sovereignty.** Truth is plain text in `.wdd/`. `rm -rf` the tool and everything stays readable with cat/jq/grep.
 
 ## Conventions
 
 - TypeScript strict, `noUncheckedIndexedAccess`. Prefer `interface` over `type`.
 - Comments only for constraints the code can't show; code should be self-documenting.
+- Source is English-only. Ledger prose follows the user's language; machine-matching uses the distiller's language-neutral `tags`, never prose keywords (English regexes are a pre-tag fallback).
 - Plain dash `-`, never the em dash.
-- `render/html.ts` builds the workbench as one template-literal string. Inside the emitted `<script>`, escape regexes/newlines for the outer literal (`\\n`, `/[/]/`, `\\"`); a single backslash there silently breaks the page.
 - Keep tests tiny and behavior-focused; they sit beside the code as `*.test.ts` (excluded from the build).
+- Task recipes live as skills in `.claude/skills/` (`add-command`, `add-signal`, `workbench-ui`) - follow them instead of re-deriving the wiring.

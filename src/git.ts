@@ -39,6 +39,80 @@ export function branchSinceTime(cwd: string): string | undefined {
   return sha ? tryGit(cwd, "show", "-s", "--format=%cI", sha) : undefined;
 }
 
+export interface FileDiff {
+  file: string;
+  added: number;
+  deleted: number;
+  size: number; // lines in the file before the change (LT); 0 for a new file
+  patch: string;
+}
+
+const PATCH_CAP = 8000;
+
+/**
+ * Per-file diff of the current branch against its merge-base (committed +
+ * uncommitted). Falls back to uncommitted changes when not on a feature
+ * branch. `.wdd/` is excluded — the audit must not narrate its own files.
+ */
+export function branchDiff(cwd: string): FileDiff[] {
+  const branch = currentBranch(cwd);
+  const base = branch && branch !== defaultBranch(cwd) ? tryGit(cwd, "merge-base", "HEAD", base_(cwd)) : undefined;
+  const range = base ?? "HEAD";
+  const numstat = tryGit(cwd, "diff", range, "--numstat", "--", ".", ":(exclude).wdd/**");
+  if (!numstat) return [];
+  const out: FileDiff[] = [];
+  for (const line of numstat.split("\n").filter(Boolean)) {
+    const [addRaw, delRaw, ...rest] = line.split("\t");
+    const file = rest.join("\t");
+    if (!file) continue;
+    const patch = tryGit(cwd, "diff", range, "--", file) ?? "";
+    const orig = tryGit(cwd, "show", `${range}:${file}`); // base version; absent for a new file
+    out.push({
+      file,
+      added: addRaw === "-" ? 0 : Number(addRaw) || 0,
+      deleted: delRaw === "-" ? 0 : Number(delRaw) || 0,
+      size: orig ? orig.split("\n").length : 0,
+      patch: patch.length > PATCH_CAP ? patch.slice(0, PATCH_CAP) + "\n… (truncated)" : patch,
+    });
+  }
+  return out;
+}
+
+function base_(cwd: string): string {
+  return defaultBranch(cwd) ?? "HEAD";
+}
+
+/**
+ * Keep only files that live inside the audited repo. Drops agent-internal
+ * paths a distiller sometimes attributes to a decision - the agent's own
+ * `~/.claude` memory/config - which are not product code and never appear in
+ * the branch diff.
+ */
+export function productFiles(files: string[] | undefined, root: string): string[] {
+  if (!files) return [];
+  const prefix = root.endsWith("/") ? root : root + "/";
+  return files.filter((f) => (f.startsWith("/") ? f.startsWith(prefix) : !f.startsWith("..")));
+}
+
+export interface Churn {
+  abs: number; // added + deleted
+  rel: number; // abs / original file size (capped at 1); how much of the file this change rewrote
+}
+
+/** Absolute and relative churn for a decision's files that appear in the branch diff. */
+export function churnFor(files: string[], root: string, diffs: Record<string, FileDiff>): Churn[] {
+  const prefix = root.endsWith("/") ? root : root + "/";
+  return files
+    .map((f) => (f.startsWith(prefix) ? f.slice(prefix.length) : f))
+    .map((rel) => diffs[rel])
+    .filter((d): d is FileDiff => !!d)
+    .map((d) => {
+      const abs = d.added + d.deleted;
+      // A new file (size 0) is not a "rewrite" - its weight comes from abs churn alone.
+      return { abs, rel: d.size > 0 ? Math.min(abs / d.size, 1) : 0 };
+    });
+}
+
 /** All worktree paths of this repo (including the main checkout). */
 export function worktreePaths(cwd: string): string[] {
   const out = tryGit(cwd, "worktree", "list", "--porcelain");

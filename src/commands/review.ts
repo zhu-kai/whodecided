@@ -4,10 +4,14 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseTrace } from "../trace/schema.js";
 import { createInterface } from "node:readline/promises";
-import { distill, type DistillOptions } from "../distill/distiller.js";
+import { distill } from "../distill/distiller.js";
+import { NO_DISTILLER_MSG, resolveDistiller } from "../distill/detect.js";
+import type { Config } from "../config.js";
 import { spinner } from "./distill.js";
 import type { DecisionCandidate } from "../extract/candidates.js";
 import { isPinned, ledgerPath, noteOf, readLedger, verdictOf } from "../ledger/io.js";
+import { evidencePath, readEvidence } from "../ledger/evidence.js";
+import { analyzeBranch, decisionSignals } from "./signals.js";
 import type { DecisionEntry } from "../ledger/schema.js";
 import { applyOps } from "../patch/apply.js";
 import type { RatifyOp } from "../patch/schema.js";
@@ -59,10 +63,14 @@ export async function review(args: string[]): Promise<number> {
   }
 
   // Build the workbench data once; serve it live (default) or write it static.
+  // Prefer persisted evidence (survives transcript rotation), overlay fresh slices.
   const slices: Record<string, string> = {};
+  for (const [ref, excerpt] of readEvidence(evidencePath(root))) slices[ref] = excerpt;
   for (const c of scope.candidates) slices[c.ref] = c.slice.slice(0, 4000);
   const tracePath = join(root, ".wdd", "trace.jsonl");
   const traces = existsSync(tracePath) ? parseTrace(readFileSync(tracePath, "utf8")).values : [];
+  const { diffs, weakened } = analyzeBranch(root);
+  const signals = decisionSignals(scoped, root, diffs, traces);
   const repoName = root.split("/").pop() ?? root;
   const repoView = {
     repo: repoName,
@@ -70,12 +78,15 @@ export async function review(args: string[]): Promise<number> {
     branch: scope.branch,
     entries: scoped.map((e) => ({
       ...e,
+      ...signals(e),
       verdict: verdictOf(ratifies, e.id),
       ...(noteOf(ratifies, e.id) ? { ruleNote: noteOf(ratifies, e.id) } : {}),
       ...(isPinned(ratifies, e.id) ? { pinned: true } : {}),
     })),
     traces,
     slices,
+    diffs,
+    weakened,
   };
   const title = scope.branch ? `${repoName} · ${scope.branch}` : repoName;
   const memory = scope.config.sync?.targets ?? [];
@@ -188,22 +199,25 @@ async function ratifyLoop(root: string, pending: DecisionEntry[]): Promise<numbe
 async function distillOnlyPath(
   candidates: DecisionCandidate[],
   head: string,
-  opts: DistillOptions,
+  opts: Config["distill"],
 ): Promise<number> {
   if (candidates.length === 0) {
     process.stdout.write("no decision candidates found\n");
     return 0;
   }
-  const stop = spinner(`distilling ${candidates.length} candidate(s) with ${opts.cmd.join(" ")} — can take ~10-60s`);
-  const { entries, degraded } = await distill(candidates, opts);
-  stop();
-  if (degraded) {
-    process.stderr.write(`distiller degraded (${degraded}); showing raw candidates\n\n`);
+  const rawCandidates = (reason: string) => {
+    process.stderr.write(`${reason}; showing raw candidates\n\n`);
     for (const c of candidates.filter((c) => c.kind !== "turn")) {
       process.stdout.write(`  ${c.aware ? "✓" : "⚠"} [${c.kind}] ${c.summary}  (${c.ref})\n`);
     }
     return 0;
-  }
+  };
+  const distiller = resolveDistiller(opts.cmd, candidates);
+  if (!distiller) return rawCandidates(NO_DISTILLER_MSG);
+  const stop = spinner(`distilling ${candidates.length} candidate(s) with ${distiller.cmd.join(" ")} — can take ~10-60s`);
+  const { entries, degraded } = await distill(candidates, { ...opts, cmd: distiller.cmd });
+  stop();
+  if (degraded) return rawCandidates(`distiller degraded (${degraded})`);
   process.stdout.write(renderDocket(entries, head) + "\n");
   return 0;
 }

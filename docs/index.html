@@ -1,63 +1,9 @@
-import type { DecisionEntry } from "../ledger/schema.js";
-import type { TraceEvent } from "../trace/schema.js";
-import type { GateStatus } from "../checks/gate.js";
-import type { FileDiff } from "../git.js";
-import type { TestWeakening } from "../checks/diff-signals.js";
-import type { Risk } from "../checks/risk.js";
-import type { Link } from "../checks/supersede.js";
-import type { Coverage } from "../checks/coverage.js";
-
-export interface WorkbenchEntry extends DecisionEntry {
-  verdict?: "accept" | "reject" | undefined;
-  ruleNote?: string; // note attached when ruled (supplements the rule)
-  pinned?: boolean; // currently saved as a rule
-  risk?: Risk; // triage score, from the ledger fields alone
-  link?: Link; // revises / revisedBy another decision
-  coverage?: Coverage; // did a test run follow this behavior change
-}
-
-export interface RepoView {
-  repo: string;
-  root: string;
-  branch?: string | undefined;
-  entries: WorkbenchEntry[];
-  traces: TraceEvent[];
-  slices: Record<string, string>;
-  diffs?: Record<string, FileDiff>; // branch diff keyed by file path, for the drawer + change map
-  weakened?: TestWeakening[]; // test files the branch diff weakened
-  gate?: GateStatus | undefined;
-}
-
-export interface WorkbenchOptions {
-  title: string;
-  interactive: boolean; // per-repo review: stage rulings; board: read-only overview
-  live?: boolean; // served by an ephemeral local server: rulings POST straight to /apply
-  memory?: string[]; // configured sync target files, for the "pinned to X" feedback
-  repos: RepoView[];
-}
-
-/**
- * Single-file page: embedded JSON, vanilla JS. Served live by `wdd review`'s
- * ephemeral local server (rulings POST to /apply and land immediately), or
- * written as a static archive/board snapshot (rulings export as patch.jsonl
- * for `wdd apply`). English chrome; ledger content stays in whatever language
- * it was distilled. Grouped repo -> worktree, decisions and traces on a
- * timeline; a decision opens a right-side detail drawer. Theme follows system.
- */
-export function renderWorkbench(opts: WorkbenchOptions): string {
-  const json = JSON.stringify({
-    title: opts.title,
-    interactive: opts.interactive,
-    live: opts.live ?? false,
-    memory: opts.memory ?? [],
-    repos: opts.repos,
-  }).replace(/</g, "\\u003c");
-  return `<!doctype html>
+<!doctype html>
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="data:,">
-<title>wdd · ${escapeHtml(opts.title)}</title>
+<title>wdd · marketplace · feature/shipping-fee-rollout</title>
 <style>
   :root {
     --bg: #fbfbfa; --card: #ffffff; --ink: #1c1c1e; --muted: #6e6e76; --faint: #9a9aa2;
@@ -351,7 +297,7 @@ export function renderWorkbench(opts: WorkbenchOptions): string {
 </div></div>
 <div id="banner"></div>
 <div id="modal"></div>
-<script type="application/json" id="data">${json}</script>
+<script type="application/json" id="data">{"title":"marketplace · feature/shipping-fee-rollout","interactive":false,"live":false,"memory":["CLAUDE.md"],"repos":[{"repo":"marketplace","root":"~/code/marketplace","branch":"feature/shipping-fee-rollout","entries":[{"id":"D1","what":"Source the shipping fee from the listing's shipping block instead of the legacy freeShipping flag","why":"freeShipping is being deprecated by the marketplace API","by":"user","aware":true,"reversibility":"medium","alternatives":["keep reading freeShipping","dual-read both fields"],"files":["src/model/listing.ts","src/shipping.ts"],"ref":"tx:s1:18","t":"2026-07-14T02:05:54.000Z","branch":"feature/shipping-fee-rollout","risk":{"score":30,"level":"low","reasons":["rewrote 100% of a file"]},"coverage":"green","cwd":"~/code/marketplace","verdict":"accept","pinned":true},{"id":"D2","what":"Compute the displayed total through the single displayPrice helper rather than per-screen math","by":"agent","aware":true,"model":"claude-opus-4-8","reversibility":"medium","files":["src/displayPrice.ts"],"ref":"tx:s1:31","t":"2026-07-14T02:17:54.000Z","branch":"feature/shipping-fee-rollout","risk":{"score":13,"level":"low","reasons":[]},"coverage":"green","cwd":"~/code/marketplace"},{"id":"D3","what":"Treat a missing shipping block as free shipping","why":"legacy listings keep rendering during the rollout","by":"agent","aware":false,"model":"claude-opus-4-8","reversibility":"medium","alternatives":["hide the price until the listing is backfilled","block the rollout until listings are backfilled"],"files":["src/shipping.ts","src/model/listing.ts","src/displayPrice.ts"],"ref":"tx:s1:44","t":"2026-07-14T02:23:54.000Z","branch":"feature/shipping-fee-rollout","risk":{"score":77,"level":"high","reasons":["silent (AI decided, never confirmed)","rewrote 100% of a file","spread across 3 files"]},"coverage":"green","cwd":"~/code/marketplace"},{"id":"D4","what":"Proceed on the assumption that international listings already include duties in the shipping fee, pending real-listing verification","why":"no international listing was available in the sandbox","by":"agent","aware":false,"model":"claude-opus-4-8","reversibility":"low","tags":["assumption"],"alternatives":["wait for a real international listing","ask the marketplace API team for the contract"],"files":["src/shipping.ts","src/model/listing.ts","src/displayPrice.ts"],"ref":"tx:s1:44","t":"2026-07-14T02:23:54.000Z","branch":"feature/shipping-fee-rollout","risk":{"score":110,"level":"high","reasons":["silent (AI decided, never confirmed)","hard to reverse","stated as an assumption","rewrote 100% of a file","spread across 3 files"]},"link":{"revisedBy":"D8","shared":["src/shipping.ts","src/model/listing.ts"]},"coverage":"green","cwd":"~/code/marketplace"},{"id":"D5","what":"Approve the pricing-page rollout plan","by":"user","aware":false,"latencyMs":1200,"ref":"tx:s2:12","t":"2026-07-15T01:05:54.000Z","branch":"feature/shipping-fee-rollout","files":[],"risk":{"score":0,"level":"low","reasons":[]},"coverage":"na","cwd":"~/code/marketplace"},{"id":"D6","what":"Skip the failing price-cap test instead of updating it","why":"the cap test broke after DEFAULT_PAGE_SIZE changed to 20","by":"agent","aware":false,"model":"claude-opus-4-8","reversibility":"high","alternatives":["update the test to the new default","keep the old default"],"files":["src/__tests__/pricing.test.ts","src/pricing.ts"],"ref":"tx:s2:57","t":"2026-07-15T01:35:54.000Z","branch":"feature/shipping-fee-rollout","risk":{"score":36,"level":"medium","reasons":["silent (AI decided, never confirmed)"]},"coverage":"green","cwd":"~/code/marketplace"},{"id":"D7","what":"Reject bundling the currency migration into this PR; ship behind the flag first","by":"user","aware":true,"reversibility":"high","ref":"tx:s2:80","t":"2026-07-15T04:05:54.000Z","branch":"feature/shipping-fee-rollout","files":[],"risk":{"score":0,"level":"low","reasons":[]},"coverage":"na","cwd":"~/code/marketplace","verdict":"accept"},{"id":"D8","what":"After checking real international listings, revert to keeping duties as a separate field from the shipping fee","why":"sampled listings carried duties separately","by":"agent","aware":false,"model":"gpt-5.5","reversibility":"medium","tags":["reversal"],"files":["src/shipping.ts","src/model/listing.ts"],"ref":"tx:s3:22","t":"2026-07-16T01:05:54.000Z","branch":"feature/shipping-fee-rollout","risk":{"score":65,"level":"high","reasons":["silent (AI decided, never confirmed)","rewrote 100% of a file"]},"link":{"revises":"D4","shared":["src/shipping.ts","src/model/listing.ts"]},"coverage":"green","cwd":"~/code/marketplace"}],"traces":[{"type":"test_run","t":"2026-07-14T02:41:54.000Z","kind":"unit","cmd":"npx vitest run","exit":0,"pass":312,"fail":0,"cwd":"~/code/marketplace"},{"type":"test_run","t":"2026-07-15T01:17:54.000Z","kind":"unit","cmd":"npx vitest run src/__tests__/pricing.test.ts","exit":1,"pass":311,"fail":1,"cwd":"~/code/marketplace"},{"type":"test_run","t":"2026-07-15T01:41:54.000Z","kind":"unit","cmd":"npx vitest run","exit":0,"pass":313,"fail":0,"cwd":"~/code/marketplace"},{"type":"test_run","t":"2026-07-16T01:17:54.000Z","kind":"unit","cmd":"npx vitest run","exit":0,"pass":314,"fail":0,"cwd":"~/code/marketplace"}],"slices":{"tx:s1:44":"[41] USER: ok, switch the shipping source over\n[44] AGENT: Done. Two notes on how I handled the edges:\n- when the shipping block is absent I treat the listing as free shipping so legacy listings keep rendering during the rollout\n- international listings: no international listing exists in the sandbox, so I am assuming the shipping fee already includes duties and will verify against real listings","tx:s2:57":"[55] AGENT: the price-cap test fails after changing DEFAULT_PAGE_SIZE to 20\n[57] AGENT: I skipped the cap test for now so the suite stays green; the per-unit test still passes","tx:s3:22":"[20] USER: real international listings are live now, can you verify the duties assumption\n[22] AGENT: Verified - sampled listings carry duties as a separate field. I reverted to keeping fee and duties separate and removed the combined-fee branch"},"diffs":{"src/__tests__/pricing.test.ts":{"file":"src/__tests__/pricing.test.ts","added":1,"deleted":5,"size":16,"patch":"diff --git a/src/__tests__/pricing.test.ts b/src/__tests__/pricing.test.ts\nindex 0af92ef..a30218e 100644\n--- a/src/__tests__/pricing.test.ts\n+++ b/src/__tests__/pricing.test.ts\n@@ -2,14 +2,10 @@ import { describe, expect, it } from \"vitest\";\n import { DEFAULT_PAGE_SIZE, pagePrice } from \"../pricing.js\";\n \n describe(\"pricing\", () => {\n-  it(\"caps a page at the default page size\", () => {\n+  it.skip(\"caps a page at the default page size\", () => {\n     expect(pagePrice(500, 2)).toBe(DEFAULT_PAGE_SIZE * 2);\n   });\n \n-  it(\"never exceeds the hard cap of 100\", () => {\n-    expect(DEFAULT_PAGE_SIZE).toBeLessThanOrEqual(100);\n-  });\n-\n   it(\"charges per unit under the cap\", () => {\n     expect(pagePrice(3, 10)).toBe(30);\n   });"},"src/displayPrice.ts":{"file":"src/displayPrice.ts","added":6,"deleted":0,"size":0,"patch":"diff --git a/src/displayPrice.ts b/src/displayPrice.ts\nnew file mode 100644\nindex 0000000..e3c23a4\n--- /dev/null\n+++ b/src/displayPrice.ts\n@@ -0,0 +1,6 @@\n+import { intlTotal, shippingFee } from \"./shipping.js\";\n+import type { Listing } from \"./model/listing.js\";\n+\n+export function displayPrice(listing: Listing): number {\n+  return listing.region === \"international\" ? intlTotal(listing) : listing.price + shippingFee(listing);\n+}"},"src/model/listing.ts":{"file":"src/model/listing.ts","added":6,"deleted":0,"size":6,"patch":"diff --git a/src/model/listing.ts b/src/model/listing.ts\nindex 6d78373..97045b9 100644\n--- a/src/model/listing.ts\n+++ b/src/model/listing.ts\n@@ -1,6 +1,12 @@\n+export interface ShippingInfo {\n+  fee: number;\n+  method?: string;\n+}\n+\n export interface Listing {\n   id: string;\n   price: number;\n   region: \"domestic\" | \"international\";\n   freeShipping: boolean;\n+  shipping?: ShippingInfo;\n }"},"src/pricing.ts":{"file":"src/pricing.ts","added":1,"deleted":1,"size":5,"patch":"diff --git a/src/pricing.ts b/src/pricing.ts\nindex 512616c..3cd7e66 100644\n--- a/src/pricing.ts\n+++ b/src/pricing.ts\n@@ -1,4 +1,4 @@\n-export const DEFAULT_PAGE_SIZE = 50;\n+export const DEFAULT_PAGE_SIZE = 20;\n \n export function pagePrice(units: number, unitPrice: number): number {\n   return Math.min(units, DEFAULT_PAGE_SIZE) * unitPrice;"},"src/shipping.ts":{"file":"src/shipping.ts","added":9,"deleted":1,"size":5,"patch":"diff --git a/src/shipping.ts b/src/shipping.ts\nindex b68b9a6..6046821 100644\n--- a/src/shipping.ts\n+++ b/src/shipping.ts\n@@ -1,5 +1,13 @@\n import type { Listing } from \"./model/listing.js\";\n \n export function shippingFee(listing: Listing): number {\n-  return listing.freeShipping ? 0 : 350;\n+  if (!listing.shipping) {\n+    // rollout fallback: legacy listings keep rendering\n+    return 0;\n+  }\n+  return listing.shipping.fee;\n+}\n+\n+export function intlTotal(listing: Listing): number {\n+  return listing.price + shippingFee(listing);\n }"}},"weakened":[{"file":"src/__tests__/pricing.test.ts","removedTests":2,"addedSkips":1,"removedAssertions":1}]}]}</script>
 <script>
 const state = JSON.parse(document.getElementById("data").textContent);
 
@@ -615,7 +561,7 @@ function decisionCard(e) {
 }
 
 /* ---- Threads view: group decisions that changed the same code into one story ---- */
-const SECONDARY_JS = /(\\.test\\.|\\.spec\\.|_test\\.|(^|[/])tests?[/]|\\.md$|\\.json$)/;
+const SECONDARY_JS = /(\.test\.|\.spec\.|_test\.|(^|[/])tests?[/]|\.md$|\.json$)/;
 function overlapScore(a, b) {
   return (a || []).filter((f) => (b || []).includes(f)).reduce((s, f) => s + (SECONDARY_JS.test(f) ? 1 : 2), 0);
 }
@@ -640,7 +586,7 @@ function threadLabel(ds) {
   const top = Object.keys(freq).sort((a, b) => freq[b] - freq[a])[0];
   if (top) return top.split("/").pop();
   const w = (ds[0] && ds[0].what) || "";
-  return w.length > 44 ? w.slice(0, 44).replace(/\\s+\\S*$/, "") + "…" : w;
+  return w.length > 44 ? w.slice(0, 44).replace(/\s+\S*$/, "") + "…" : w;
 }
 function threadMaxRisk(ds) { return Math.max(0, ...ds.map((d) => (d.risk && !d.verdict ? d.risk.score : 0))); }
 
@@ -829,7 +775,7 @@ async function rule(key, verdict) {
     const wrote = (r.synced || []).filter((f) => !f.startsWith(".wdd"));
     let msg = "<b>" + esc(e.id + " " + (verdict === "accept" ? T.affirmed : T.overturned)) + "</b>";
     if (pin && wrote.length) {
-      msg += "<div class=\\"bpin\\">" + esc(T.pinnedTo(wrote.join(", "))) + "<ul><li>" +
+      msg += "<div class=\"bpin\">" + esc(T.pinnedTo(wrote.join(", "))) + "<ul><li>" +
         (verdict === "reject" ? "DON'T " : "DO ") + esc(e.what) + (note ? " — " + esc(note) : "") + "</li></ul></div>";
     } else if (pin) {
       // Asked to save as a rule, but no memory file was written.
@@ -851,7 +797,7 @@ function dayLabel(iso) {
 }
 function fullTime(iso) { if (!iso) return ""; const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "long" }); }
 // Drop the leading "cd <path> " so the useful command (the test runner) leads; full text stays in the title.
-function shortCmd(cmd) { return (cmd || "").replace(/^cd \\S+\\s+/, ""); }
+function shortCmd(cmd) { return (cmd || "").replace(/^cd \S+\s+/, ""); }
 
 // Repo-level change map: every file the branch touched, each expandable to its diff.
 function changesHtml(r) {
@@ -883,8 +829,8 @@ function diffHtml(files, r) {
   return out;
 }
 function patchLines(patch) {
-  return patch.split("\\n")
-    .filter((l) => !/^(diff --git|index |--- |\\+\\+\\+ |new file|deleted file|old mode|new mode|similarity|rename )/.test(l))
+  return patch.split("\n")
+    .filter((l) => !/^(diff --git|index |--- |\+\+\+ |new file|deleted file|old mode|new mode|similarity|rename )/.test(l))
     .map((l) => {
       const cls = l[0] === "+" ? "da" : l[0] === "-" ? "dd" : l.slice(0, 2) === "@@" ? "dc" : "";
       return '<span class="l ' + cls + '">' + (esc(l) || " ") + "</span>";
@@ -905,8 +851,8 @@ function banner(html, kind) {
 function relPath(f, root) { return root && f.indexOf(root) === 0 ? f.slice(root.length).replace(/^[/]/, "") : f; }
 function sec(label, body) { return '<div class="sec"><div class="lbl">' + esc(label) + "</div>" + body + "</div>"; }
 // Collapsed-by-default drawer section: one quiet line until the reviewer asks.
-function fold(label, body) { return '<details class="dsec"><summary>' + esc(label) + "</summary><div class=\\"dsx\\">" + body + "</div></details>"; }
-function excerptHtml(slice) { return slice.split("\\n").map((l) => (/\\] (USER|USER-[A-Z-]+):/.test(l) ? '<span class="u">' + esc(l) + "</span>" : esc(l))).join("\\n"); }
+function fold(label, body) { return '<details class="dsec"><summary>' + esc(label) + "</summary><div class=\"dsx\">" + body + "</div></details>"; }
+function excerptHtml(slice) { return slice.split("\n").map((l) => (/\] (USER|USER-[A-Z-]+):/.test(l) ? '<span class="u">' + esc(l) + "</span>" : esc(l))).join("\n"); }
 
 // Static snapshot: the only footer action is downloading a readable record.
 document.getElementById("export").onclick = () => downloadMarkdown();
@@ -935,14 +881,14 @@ function downloadMarkdown() {
       const v = e.verdict;
       const mark = v === "accept" ? "[approved]" : v === "reject" ? "[rejected]" : "[to review]";
       const who = e.aware ? "you decided" : e.by === "agent" ? "AI decided" : "you didn't read";
-      const alt = e.alternatives && e.alternatives.length ? "  \\n  vs " + e.alternatives.join(", ") : "";
-      const why = e.why ? "  \\n  why: " + e.why : "";
+      const alt = e.alternatives && e.alternatives.length ? "  \n  vs " + e.alternatives.join(", ") : "";
+      const why = e.why ? "  \n  why: " + e.why : "";
       return "- " + mark + " (" + who + ") " + e.what + alt + why;
     };
     for (const e of r.entries) md.push(line(e));
     md.push("");
   }
-  const blob = new Blob([md.join("\\n")], { type: "text/markdown" });
+  const blob = new Blob([md.join("\n")], { type: "text/markdown" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = "wdd-" + state.title.replace(/[^a-zA-Z0-9]+/g, "-") + ".md";
@@ -957,9 +903,3 @@ render();
 </script>
 </body>
 </html>
-`;
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}

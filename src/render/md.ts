@@ -1,5 +1,6 @@
 import type { GateStatus } from "../checks/gate.js";
 import type { DecisionEntry, RatifyEntry } from "../ledger/schema.js";
+import type { TestWeakening } from "../checks/diff-signals.js";
 import { followups, verdictOf } from "../ledger/io.js";
 
 export function renderMd(
@@ -7,6 +8,7 @@ export function renderMd(
   ratifies: RatifyEntry[],
   gate: GateStatus,
   header: string,
+  weakened: TestWeakening[] = [],
 ): string {
   const badge = gate.green ? "🟢 gate: green" : "🔴 gate: red";
   const freshness = gate.fresh ? "ledger fresh" : `undistilled sessions: ${gate.staleSessions.join(", ")}`;
@@ -17,6 +19,14 @@ export function renderMd(
     `${badge} · ${freshness} · ${gate.pendingSilent.length} silent decision(s) pending`,
     "",
   ];
+  if (weakened.length > 0) {
+    lines.push(`### ⚠ Tests weakened on this branch (${weakened.length})`, "");
+    for (const w of weakened) {
+      const what = [w.removedTests ? `${w.removedTests} removed` : "", w.addedSkips ? `${w.addedSkips} skipped` : "", w.removedAssertions ? `${w.removedAssertions} assertion(s) dropped` : ""].filter(Boolean).join(", ");
+      lines.push(`- \`${w.file}\` — ${what}`);
+    }
+    lines.push("");
+  }
   if (fixes.length > 0) {
     lines.push(`### ⚠ Overturned — code fix pending (${fixes.length})`, "");
     for (const f of fixes) {

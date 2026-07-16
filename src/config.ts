@@ -19,7 +19,7 @@ export interface Config {
   // uninvited). "on" restores auto-commit for those who want the audit in git.
   commit: "off" | "on";
   distill: {
-    cmd: string[];
+    cmd?: string[]; // absent = auto-detect claude/codex at distill time
     timeoutMs: number;
     budget: number;
     lang: "auto" | "zh" | "en";
@@ -35,7 +35,8 @@ export interface Config {
 export const DEFAULT_CONFIG: Config = {
   share: "repo",
   commit: "off",
-  distill: { cmd: ["claude", "-p"], timeoutMs: 120_000, budget: 10, lang: "auto", auto: "off" },
+  // lang "auto": ledger prose follows the user's language; matching relies on tags, not prose.
+  distill: { timeoutMs: 120_000, budget: 10, lang: "auto", auto: "off" },
   heuristics: { reflexMs: 3000 },
   review: { days: 7, sessions: 10 },
 };
@@ -77,7 +78,7 @@ export function loadConfig(root: string | undefined): Config {
     share,
     commit,
     distill: {
-      cmd: typeof d.cmd === "string" ? d.cmd.split(/\s+/) : DEFAULT_CONFIG.distill.cmd,
+      ...(typeof d.cmd === "string" ? { cmd: d.cmd.split(/\s+/) } : {}),
       timeoutMs: num(d.timeout, DEFAULT_CONFIG.distill.timeoutMs / 1000) * 1000,
       budget: num(d.budget, DEFAULT_CONFIG.distill.budget),
       lang: d.lang === "zh" || d.lang === "en" ? d.lang : "auto",

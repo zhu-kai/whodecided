@@ -3,6 +3,8 @@ import { basename, join, resolve } from "node:path";
 import { gateStatus } from "../checks/gate.js";
 import { loadWatermark, watermarkPath } from "../distill/watermark.js";
 import { ledgerPath, readLedger, verdictOf } from "../ledger/io.js";
+import { evidencePath, readEvidence } from "../ledger/evidence.js";
+import { analyzeBranch, decisionSignals } from "./signals.js";
 import { renderWorkbench, type RepoView } from "../render/html.js";
 import { parseTrace } from "../trace/schema.js";
 import { resolveScope } from "./scope.js";
@@ -31,14 +33,20 @@ export function board(args: string[]): number {
     const scoped = scope.branch ? entries.filter((e) => !e.branch || e.branch === scope.branch) : entries;
     const tracePath = join(root, ".wdd", "trace.jsonl");
     const slices: Record<string, string> = {};
+    for (const [ref, excerpt] of readEvidence(evidencePath(root))) slices[ref] = excerpt;
     for (const c of scope.candidates) slices[c.ref] = c.slice.slice(0, 4000);
+    const { diffs, weakened } = analyzeBranch(root);
+    const traces = existsSync(tracePath) ? parseTrace(readFileSync(tracePath, "utf8")).values : [];
+    const signals = decisionSignals(scoped, root, diffs, traces);
     return {
       repo: basename(root),
       root,
       branch: scope.branch,
-      entries: scoped.map((e) => ({ ...e, verdict: verdictOf(ratifies, e.id) })),
-      traces: existsSync(tracePath) ? parseTrace(readFileSync(tracePath, "utf8")).values : [],
+      entries: scoped.map((e) => ({ ...e, ...signals(e), verdict: verdictOf(ratifies, e.id) })),
+      traces,
       slices,
+      diffs,
+      weakened,
       gate: gateStatus(scoped, ratifies, scope.candidates, loadWatermark(watermarkPath(root))),
     };
   });

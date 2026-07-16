@@ -7,6 +7,7 @@ Usage: wdd <command> [args]
 Everyday:
   review           Distill, open the workbench, rule (Approve/Reject save straight to the ledger).
                    --term terminal flow · --distill-only zero-config read-only demo · --html static snapshot
+                   --claude / --codex force the distiller for this run (default: auto-detect)
   recall <term>    Search ruled precedent (only decisions you've ratified)
   gate             Two-green merge gate (exit 0 = all green); for pre-push / CI
 

@@ -18,6 +18,8 @@ export interface DecisionEntry {
   branch?: string;
   precedent?: string;
   files?: string[]; // code files touched in this decision's turn, for grounding
+  // Language-neutral semantic markers from the distiller; checks match on these, keyword regexes are fallback.
+  tags?: ("assumption" | "reversal")[];
 }
 
 export interface RatifyEntry {
@@ -67,6 +69,10 @@ function parseDecision(v: Record<string, unknown>): DecisionEntry | string {
     return 'reversibility: "low" | "medium" | "high" expected';
   }
   if (v.latencyMs !== undefined && typeof v.latencyMs !== "number") return "latencyMs: number expected";
+  if (v.tags !== undefined) {
+    if (!Array.isArray(v.tags)) return "tags: array expected";
+    v.tags = (v.tags as unknown[]).filter((x) => x === "assumption" || x === "reversal");
+  }
   // Extra fields pass through untouched: hand edits and future fields must survive.
   return v as unknown as DecisionEntry;
 }
