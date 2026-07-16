@@ -1,26 +1,67 @@
-name: publish
+name: Publish
 
-# Publishes to npm on a GitHub Release (tag like v0.1.0) via OIDC trusted
-# publishing — no npm token. Configure the trusted publisher once at
-# npmjs.com → the package → Settings → Trusted publishing (GitHub Actions,
-# repo zhu-kai/whodecided, workflow publish.yml). Provenance is automatic.
 on:
   release:
     types: [published]
+  workflow_dispatch:
 
 jobs:
-  publish:
+  publish-npm:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write # OIDC identity for trusted publishing + provenance
+      id-token: write # OIDC for npm trusted publishing
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+
+      # No registry-url here: it would write a placeholder _authToken to .npmrc,
+      # which preempts the OIDC token exchange used by trusted publishing
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
         with:
           node-version: 24
-          registry-url: https://registry.npmjs.org
-      - run: npm install -g npm@latest # OIDC trusted publishing needs npm >= 11.5
-      - run: npm ci
-      - run: npm test
-      - run: npm publish --access public
+
+      - name: Update npm (trusted publishing needs >= 11.5.1)
+        run: npm install -g npm@latest
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish to npm
+        run: npm publish --access public
+
+  publish-github:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          registry-url: https://npm.pkg.github.com/
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Set scoped package name for GitHub Packages
+        run: npm pkg set name='@zhu-kai/whodecided'
+
+      - name: Publish to GitHub Packages
+        run: |
+          if npm view "@zhu-kai/whodecided@$(npm pkg get version | tr -d '"')" version >/dev/null 2>&1; then
+            echo "Version already published, skipping"
+          else
+            npm publish
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

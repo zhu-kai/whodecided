@@ -27,9 +27,10 @@ export interface DistillOutcome {
 export async function distill(
   candidates: DecisionCandidate[],
   opts: DistillOptions = DEFAULT_DISTILL,
+  known: string[] = [],
 ): Promise<DistillOutcome> {
   if (candidates.length === 0) return { entries: [] };
-  const { instructions, payload } = buildPrompt(candidates, opts.budget, resolveLang(candidates, opts.lang));
+  const { instructions, payload } = buildPrompt(candidates, opts.budget, resolveLang(candidates, opts.lang), known);
   const refs = new Set(candidates.map((c) => c.ref));
   let lastError = "";
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -78,9 +79,11 @@ function parseEntries(stdout: string, validRefs: Set<string>, budget: number): D
 function run(cmd: string[], prompt: string, stdinPayload: string, timeoutMs: number): Promise<string> {
   return new Promise((resolve, reject) => {
     const [bin = "", ...args] = cmd;
-    // Payload goes through stdin: argv has a hard size limit (E2BIG).
-    const child = spawn(bin, [...args, prompt], { stdio: ["pipe", "pipe", "pipe"] });
-    child.stdin.write(stdinPayload);
+    // Payload goes through stdin: argv has a hard size limit (E2BIG). A
+    // trailing "-" (codex exec convention) sends the prompt via stdin too.
+    const stdinPrompt = args[args.length - 1] === "-";
+    const child = spawn(bin, stdinPrompt ? args : [...args, prompt], { stdio: ["pipe", "pipe", "pipe"] });
+    child.stdin.write(stdinPrompt ? `${prompt}\n\nCANDIDATES (JSON):\n${stdinPayload}` : stdinPayload);
     child.stdin.end();
     const timer = setTimeout(() => {
       child.kill("SIGKILL");
